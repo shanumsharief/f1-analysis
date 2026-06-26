@@ -4,102 +4,256 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import dash
 from dash import dcc, html, Input, Output
-import pandas as pd
 import numpy as np
 from scipy.interpolate import interp1d
 
 fastf1.Cache.enable_cache('cache')
 
-# Load session
 session = fastf1.get_session(2023, 'Monaco', 'Q')
 session.load()
 
-# Get all driver codes
-drivers = session.laps['Driver'].unique().tolist()
+drivers = sorted(session.laps['Driver'].unique().tolist())
+
+TEAL = '#00D2BE'
+SILVER = '#C0C0C0'
+BG = '#0a0a0a'
+CARD = '#111111'
+BORDER = '#222222'
+TEXT = '#e8e8e8'
+MUTED = '#666666'
 
 app = dash.Dash(__name__)
 
-app.layout = html.Div(style={'backgroundColor': '#1a1a2e', 'minHeight': '100vh', 'padding': '20px', 'fontFamily': 'Arial'}, children=[
+app.index_string = '''
+<!DOCTYPE html>
+<html>
+<head>
+    {%metas%}
+    <title>F1 Analysis Dashboard</title>
+    {%favicon%}
+    {%css%}
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0a0a0a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0a0a; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        .Select-control { background-color: #1a1a1a !important; border-color: #333 !important; color: #e8e8e8 !important; }
+        .Select-menu-outer { background-color: #1a1a1a !important; border-color: #333 !important; }
+        .Select-option { background-color: #1a1a1a !important; color: #e8e8e8 !important; }
+        .Select-option:hover { background-color: #222 !important; }
+        .Select-value-label { color: #e8e8e8 !important; }
+        .Select-single-value { color: #e8e8e8 !important; }
+        .Select-placeholder { color: #666 !important; }
+        .Select-arrow { border-top-color: #666 !important; }
+    </style>
+</head>
+<body>
+    {%app_entry%}
+    <footer>
+        {%config%}
+        {%scripts%}
+        {%renderer%}
+    </footer>
+</body>
+</html>
+'''
 
-    html.H1("🏎️ F1 Race Analysis Dashboard",
-            style={'color': '#e94560', 'textAlign': 'center', 'marginBottom': '5px'}),
-    html.H3("Monaco 2023 Qualifying",
-            style={'color': '#aaaaaa', 'textAlign': 'center', 'marginTop': '0px'}),
+app.layout = html.Div(style={
+    'backgroundColor': BG,
+    'minHeight': '100vh',
+    'padding': '28px 32px',
+    'fontFamily': '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+}, children=[
+
+    # Header
+    html.Div(style={
+        'display': 'flex',
+        'justifyContent': 'space-between',
+        'alignItems': 'center',
+        'borderBottom': f'0.5px solid {BORDER}',
+        'paddingBottom': '20px',
+        'marginBottom': '24px'
+    }, children=[
+        html.Div(style={'display': 'flex', 'alignItems': 'center', 'gap': '12px'}, children=[
+            html.Div(style={
+                'width': '10px', 'height': '10px',
+                'borderRadius': '50%', 'backgroundColor': TEAL
+            }),
+            html.Div([
+                html.Div("F1 Analysis Dashboard", style={
+                    'color': TEXT, 'fontSize': '16px', 'fontWeight': '500', 'letterSpacing': '0.3px'
+                }),
+                html.Div("Monaco Grand Prix · 2023 Qualifying", style={
+                    'color': MUTED, 'fontSize': '12px', 'marginTop': '2px'
+                })
+            ])
+        ]),
+        html.Span("FastF1 · Real telemetry data", style={
+            'fontSize': '11px', 'color': MUTED,
+            'border': f'0.5px solid {BORDER}',
+            'padding': '4px 12px', 'borderRadius': '20px'
+        })
+    ]),
 
     # Driver selectors
-    html.Div(style={'display': 'flex', 'justifyContent': 'center', 'gap': '40px', 'marginBottom': '20px'}, children=[
-        html.Div([
-            html.Label("Driver 1", style={'color': '#0600EF', 'fontWeight': 'bold'}),
+    html.Div(style={'display': 'flex', 'gap': '12px', 'marginBottom': '20px'}, children=[
+        html.Div(style={
+            'background': CARD, 'border': f'0.5px solid {BORDER}',
+            'borderRadius': '8px', 'padding': '12px 16px', 'flex': '1'
+        }, children=[
+            html.Div("DRIVER 1", style={
+                'fontSize': '10px', 'color': TEAL,
+                'letterSpacing': '1.2px', 'marginBottom': '8px', 'fontWeight': '500'
+            }),
             dcc.Dropdown(
                 id='driver1',
                 options=[{'label': d, 'value': d} for d in drivers],
                 value='VER',
-                style={'width': '150px', 'backgroundColor': '#16213e', 'color': 'black'}
+                clearable=False,
+                style={'backgroundColor': '#1a1a1a', 'border': 'none', 'color': TEXT}
             )
         ]),
-        html.Div([
-            html.Label("Driver 2", style={'color': '#00D2BE', 'fontWeight': 'bold'}),
+        html.Div(style={
+            'background': CARD, 'border': f'0.5px solid {BORDER}',
+            'borderRadius': '8px', 'padding': '12px 16px', 'flex': '1'
+        }, children=[
+            html.Div("DRIVER 2", style={
+                'fontSize': '10px', 'color': SILVER,
+                'letterSpacing': '1.2px', 'marginBottom': '8px', 'fontWeight': '500'
+            }),
             dcc.Dropdown(
                 id='driver2',
                 options=[{'label': d, 'value': d} for d in drivers],
                 value='HAM',
-                style={'width': '150px', 'backgroundColor': '#16213e', 'color': 'black'}
+                clearable=False,
+                style={'backgroundColor': '#1a1a1a', 'border': 'none', 'color': TEXT}
             )
         ]),
     ]),
 
-    # Lap time display
-    html.Div(id='lap-times', style={'textAlign': 'center', 'marginBottom': '20px'}),
+    # Metric cards
+    html.Div(id='metric-cards', style={
+        'display': 'grid',
+        'gridTemplateColumns': 'repeat(4, 1fr)',
+        'gap': '10px',
+        'marginBottom': '20px'
+    }),
 
-    # Main telemetry chart
-    dcc.Graph(id='telemetry-chart', style={'marginBottom': '20px'}),
+    # Telemetry chart
+    html.Div(style={
+        'background': CARD, 'border': f'0.5px solid {BORDER}',
+        'borderRadius': '12px', 'padding': '4px', 'marginBottom': '12px'
+    }, children=[
+        dcc.Graph(id='telemetry-chart', config={'displayModeBar': False})
+    ]),
 
     # Delta chart
-    dcc.Graph(id='delta-chart'),
+    html.Div(style={
+        'background': CARD, 'border': f'0.5px solid {BORDER}',
+        'borderRadius': '12px', 'padding': '4px'
+    }, children=[
+        dcc.Graph(id='delta-chart', config={'displayModeBar': False})
+    ]),
+
 ])
+
+
+def make_metric_card(label, value, sub, color=TEXT):
+    return html.Div(style={
+        'background': CARD,
+        'border': f'0.5px solid {BORDER}',
+        'borderRadius': '8px',
+        'padding': '14px 16px'
+    }, children=[
+        html.Div(label, style={'fontSize': '10px', 'color': MUTED, 'letterSpacing': '1px', 'marginBottom': '6px'}),
+        html.Div(value, style={'fontSize': '20px', 'fontWeight': '500', 'color': color}),
+        html.Div(sub, style={'fontSize': '11px', 'color': MUTED, 'marginTop': '4px'})
+    ])
 
 
 @app.callback(
     Output('telemetry-chart', 'figure'),
     Output('delta-chart', 'figure'),
-    Output('lap-times', 'children'),
+    Output('metric-cards', 'children'),
     Input('driver1', 'value'),
     Input('driver2', 'value')
 )
-def update_charts(driver1, driver2):
-    # Get fastest laps
+def update(driver1, driver2):
     d1_lap = session.laps.pick_drivers(driver1).pick_fastest()
     d2_lap = session.laps.pick_drivers(driver2).pick_fastest()
-
     d1_tel = d1_lap.get_telemetry().add_distance()
     d2_tel = d2_lap.get_telemetry().add_distance()
 
-    d1_time = str(d1_lap['LapTime']).split()[-1][:11]
-    d2_time = str(d2_lap['LapTime']).split()[-1][:11]
+    d1_laptime = d1_lap['LapTime'].total_seconds()
+    d2_laptime = d2_lap['LapTime'].total_seconds()
 
-    # --- Telemetry figure ---
-    fig = make_subplots(rows=4, cols=1, shared_xaxes=True,
-                        subplot_titles=('Speed (km/h)', 'Throttle (%)', 'Brake', 'Gear'),
-                        vertical_spacing=0.08)
+    def fmt_time(secs):
+        m = int(secs // 60)
+        s = secs % 60
+        return f"{m}:{s:06.3f}"
 
-    for tel, driver, color in [(d1_tel, driver1, '#0600EF'), (d2_tel, driver2, '#00D2BE')]:
-        fig.add_trace(go.Scatter(x=tel['Distance'], y=tel['Speed'], name=driver, line=dict(color=color), legendgroup=driver), row=1, col=1)
-        fig.add_trace(go.Scatter(x=tel['Distance'], y=tel['Throttle'], name=driver, line=dict(color=color), legendgroup=driver, showlegend=False), row=2, col=1)
-        fig.add_trace(go.Scatter(x=tel['Distance'], y=tel['Brake'], name=driver, line=dict(color=color), legendgroup=driver, showlegend=False), row=3, col=1)
-        fig.add_trace(go.Scatter(x=tel['Distance'], y=tel['nGear'], name=driver, line=dict(color=color), legendgroup=driver, showlegend=False), row=4, col=1)
+    gap = abs(d1_laptime - d2_laptime)
+    faster = driver1 if d1_laptime < d2_laptime else driver2
+    d1_top = d1_tel['Speed'].max()
+    d2_top = d2_tel['Speed'].max()
+
+    # Metric cards
+    cards = [
+        make_metric_card(f"{driver1} LAP TIME", fmt_time(d1_laptime), "fastest lap", TEAL),
+        make_metric_card(f"{driver2} LAP TIME", fmt_time(d2_laptime), "fastest lap", SILVER),
+        make_metric_card("GAP", f"+{gap:.3f}s", f"{faster} advantage", TEXT),
+        make_metric_card("TOP SPEED", f"{max(d1_top, d2_top):.0f} km/h", f"{driver1} {d1_top:.0f} · {driver2} {d2_top:.0f}", TEXT),
+    ]
+
+    # Telemetry figure
+    fig = make_subplots(
+        rows=4, cols=1, shared_xaxes=True,
+        row_heights=[0.35, 0.25, 0.2, 0.2],
+        vertical_spacing=0.06
+    )
+
+    traces = [
+        ('Speed', 'Speed (km/h)', 1),
+        ('Throttle', 'Throttle %', 2),
+        ('Brake', 'Brake', 3),
+        ('nGear', 'Gear', 4),
+    ]
+
+    for col, label, row in traces:
+        for tel, driver, color in [(d1_tel, driver1, TEAL), (d2_tel, driver2, SILVER)]:
+            fig.add_trace(go.Scatter(
+                x=tel['Distance'], y=tel[col],
+                name=driver, line=dict(color=color, width=1.5),
+                legendgroup=driver,
+                showlegend=(row == 1),
+                hovertemplate=f'<b>{driver}</b><br>{label}: %{{y:.1f}}<br>Distance: %{{x:.0f}}m<extra></extra>'
+            ), row=row, col=1)
+        fig.update_yaxes(title_text=label, row=row, col=1,
+                         title_font=dict(size=10, color=MUTED),
+                         tickfont=dict(size=10, color=MUTED),
+                         gridcolor='#1a1a1a', zerolinecolor='#1a1a1a')
 
     fig.update_layout(
-        paper_bgcolor='#1a1a2e',
-        plot_bgcolor='#16213e',
-        font=dict(color='white'),
-        height=700,
-        title=dict(text=f'{driver1} vs {driver2} — Telemetry', font=dict(color='white')),
-        legend=dict(font=dict(color='white'))
+        paper_bgcolor=CARD, plot_bgcolor=CARD,
+        font=dict(color=TEXT, family='-apple-system, sans-serif'),
+        height=580,
+        margin=dict(l=60, r=20, t=40, b=40),
+        legend=dict(
+            orientation='h', y=1.02, x=1, xanchor='right',
+            font=dict(size=11, color=TEXT),
+            bgcolor='rgba(0,0,0,0)'
+        ),
+        title=dict(
+            text=f'{driver1}  vs  {driver2}  —  Telemetry',
+            font=dict(size=13, color=MUTED),
+            x=0.01
+        ),
     )
-    fig.update_xaxes(gridcolor='#333355')
-    fig.update_yaxes(gridcolor='#333355')
+    fig.update_xaxes(gridcolor='#1a1a1a', zerolinecolor='#1a1a1a',
+                     tickfont=dict(size=10, color=MUTED))
 
-    # --- Delta figure ---
+    # Delta figure
     d1_dist = d1_tel['Distance'].values
     d1_t = d1_tel['Time'].dt.total_seconds().values
     d2_dist = d2_tel['Distance'].values
@@ -114,30 +268,34 @@ def update_charts(driver1, driver2):
     fig2.add_trace(go.Scatter(
         x=common_dist, y=delta,
         fill='tozeroy',
-        line=dict(color='#e94560'),
-        name='Delta'
+        fillcolor=f'rgba(0, 210, 190, 0.12)',
+        line=dict(color=TEAL, width=1.5),
+        name='Delta',
+        hovertemplate='Distance: %{x:.0f}m<br>Delta: %{y:.3f}s<extra></extra>'
     ))
-    fig2.add_hline(y=0, line_dash='dash', line_color='white', opacity=0.5)
+    fig2.add_hline(y=0, line_dash='dot', line_color=BORDER, line_width=1)
+
     fig2.update_layout(
-        paper_bgcolor='#1a1a2e',
-        plot_bgcolor='#16213e',
-        font=dict(color='white'),
-        height=300,
-        title=dict(text=f'Lap Delta — positive = {driver1} faster', font=dict(color='white')),
-        xaxis_title='Distance (m)',
-        yaxis_title='Delta (s)'
+        paper_bgcolor=CARD, plot_bgcolor=CARD,
+        font=dict(color=TEXT),
+        height=220,
+        margin=dict(l=60, r=20, t=40, b=40),
+        showlegend=False,
+        title=dict(
+            text=f'Lap delta  —  positive = {driver1} faster',
+            font=dict(size=13, color=MUTED),
+            x=0.01
+        ),
+        xaxis=dict(title='Distance (m)', gridcolor='#1a1a1a',
+                   tickfont=dict(size=10, color=MUTED),
+                   title_font=dict(size=10, color=MUTED)),
+        yaxis=dict(title='Delta (s)', gridcolor='#1a1a1a',
+                   tickfont=dict(size=10, color=MUTED),
+                   title_font=dict(size=10, color=MUTED))
     )
-    fig2.update_xaxes(gridcolor='#333355')
-    fig2.update_yaxes(gridcolor='#333355')
 
-    # Lap time display
-    lap_display = html.Div([
-        html.Span(f"{driver1}: {d1_time}", style={'color': '#0600EF', 'fontWeight': 'bold', 'fontSize': '18px', 'marginRight': '40px'}),
-        html.Span(f"{driver2}: {d2_time}", style={'color': '#00D2BE', 'fontWeight': 'bold', 'fontSize': '18px'})
-    ])
-
-    return fig, fig2, lap_display
+    return fig, fig2, cards
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)
