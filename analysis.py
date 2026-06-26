@@ -7,28 +7,39 @@ fastf1.Cache.enable_cache('cache')
 session = fastf1.get_session(2023, 'Monaco', 'Q')
 session.load()
 
-# Fix: use pick_drivers instead of pick_driver
+# Get fastest lap for each driver
 ver = session.laps.pick_drivers('VER').pick_fastest()
-telemetry = ver.get_telemetry()
+ham = session.laps.pick_drivers('HAM').pick_fastest()
 
-fig, axes = plt.subplots(4, 1, figsize=(12, 10), sharex=True)
-fig.suptitle("Verstappen Fastest Lap - Monaco 2023 Qualifying", fontsize=14)
+# Get telemetry
+ver_tel = ver.get_telemetry().add_distance()
+ham_tel = ham.get_telemetry().add_distance()
 
-axes[0].plot(telemetry['Distance'], telemetry['Speed'], color='red')
+fig, axes = plt.subplots(3, 1, figsize=(13, 10), sharex=True)
+fig.suptitle("VER vs HAM - Monaco 2023 Qualifying", fontsize=14)
+
+# Speed comparison
+axes[0].plot(ver_tel['Distance'], ver_tel['Speed'], color='#0600EF', label='Verstappen')
+axes[0].plot(ham_tel['Distance'], ham_tel['Speed'], color='#00D2BE', label='Hamilton')
 axes[0].set_ylabel('Speed (km/h)')
+axes[0].legend()
 
-axes[1].plot(telemetry['Distance'], telemetry['Throttle'], color='green')
+# Throttle comparison
+axes[1].plot(ver_tel['Distance'], ver_tel['Throttle'], color='#0600EF', label='Verstappen')
+axes[1].plot(ham_tel['Distance'], ham_tel['Throttle'], color='#00D2BE', label='Hamilton')
 axes[1].set_ylabel('Throttle (%)')
+axes[1].legend()
 
-axes[2].plot(telemetry['Distance'], telemetry['Brake'], color='orange')
-axes[2].set_ylabel('Brake')
-
-axes[3].plot(telemetry['Distance'], telemetry['nGear'], color='blue')
-axes[3].set_ylabel('Gear')
-axes[3].set_xlabel('Distance (m)')
+# Gear comparison
+axes[2].plot(ver_tel['Distance'], ver_tel['nGear'], color='#0600EF', label='Verstappen')
+axes[2].plot(ham_tel['Distance'], ham_tel['nGear'], color='#00D2BE', label='Hamilton')
+axes[2].set_ylabel('Gear')
+axes[2].set_xlabel('Distance (m)')
+axes[2].legend()
 
 plt.tight_layout()
-plt.savefig('monaco_verstappen.png', dpi=150)
+plt.savefig('ver_vs_ham_monaco.png', dpi=150)
 plt.show()
 
-print("Plot saved as monaco_verstappen.png")
+print(f"VER fastest lap: {ver['LapTime']}")
+print(f"HAM fastest lap: {ham['LapTime']}")
