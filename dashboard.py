@@ -15,7 +15,7 @@ session.load()
 drivers = sorted(session.laps['Driver'].unique().tolist())
 
 TEAL = '#00D2BE'
-SILVER = '#C0C0C0'
+SILVER = '#FFFFFF'
 BG = '#0a0a0a'
 CARD = '#111111'
 BORDER = '#222222'
@@ -38,14 +38,16 @@ app.index_string = '''
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0a0a0a; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
-        .Select-control { background-color: #1a1a1a !important; border-color: #333 !important; color: #e8e8e8 !important; }
-        .Select-menu-outer { background-color: #1a1a1a !important; border-color: #333 !important; }
-        .Select-option { background-color: #1a1a1a !important; color: #e8e8e8 !important; }
-        .Select-option:hover { background-color: #222 !important; }
-        .Select-value-label { color: #e8e8e8 !important; }
-        .Select-single-value { color: #e8e8e8 !important; }
-        .Select-placeholder { color: #666 !important; }
-        .Select-arrow { border-top-color: #666 !important; }
+        .dark-dropdown .Select-control { background-color: #1a1a1a !important; border: 0.5px solid #333 !important; }
+        .dark-dropdown .Select-value-label { color: #e8e8e8 !important; }
+        .dark-dropdown .Select-single-value { color: #e8e8e8 !important; }
+        .dark-dropdown .Select-menu-outer { background-color: #1a1a1a !important; border-color: #333 !important; }
+        .dark-dropdown .Select-option { color: #e8e8e8 !important; background-color: #1a1a1a !important; }
+        .dark-dropdown .Select-option.is-focused { background-color: #222 !important; }
+        .dark-dropdown .Select-option.is-selected { background-color: #00D2BE22 !important; color: #00D2BE !important; }
+        .dark-dropdown .Select-arrow { border-top-color: #666 !important; }
+        .dark-dropdown input { background-color: #1a1a1a !important; color: #e8e8e8 !important; }
+        .dark-dropdown .Select-placeholder { color: #666 !important; }
     </style>
 </head>
 <body>
@@ -111,7 +113,8 @@ app.layout = html.Div(style={
                 options=[{'label': d, 'value': d} for d in drivers],
                 value='VER',
                 clearable=False,
-                style={'backgroundColor': '#1a1a1a', 'border': 'none', 'color': TEXT}
+                className='dark-dropdown',
+                style={'backgroundColor': '#1a1a1a', 'color': TEXT, 'border': 'none'}
             )
         ]),
         html.Div(style={
@@ -127,7 +130,8 @@ app.layout = html.Div(style={
                 options=[{'label': d, 'value': d} for d in drivers],
                 value='HAM',
                 clearable=False,
-                style={'backgroundColor': '#1a1a1a', 'border': 'none', 'color': TEXT}
+                className='dark-dropdown',
+                style={'backgroundColor': '#1a1a1a', 'color': TEXT, 'border': 'none'}
             )
         ]),
     ]),
@@ -198,7 +202,6 @@ def update(driver1, driver2):
     d1_top = d1_tel['Speed'].max()
     d2_top = d2_tel['Speed'].max()
 
-    # Metric cards
     cards = [
         make_metric_card(f"{driver1} LAP TIME", fmt_time(d1_laptime), "fastest lap", TEAL),
         make_metric_card(f"{driver2} LAP TIME", fmt_time(d2_laptime), "fastest lap", SILVER),
@@ -206,7 +209,6 @@ def update(driver1, driver2):
         make_metric_card("TOP SPEED", f"{max(d1_top, d2_top):.0f} km/h", f"{driver1} {d1_top:.0f} · {driver2} {d2_top:.0f}", TEXT),
     ]
 
-    # Telemetry figure
     fig = make_subplots(
         rows=4, cols=1, shared_xaxes=True,
         row_heights=[0.35, 0.25, 0.2, 0.2],
@@ -222,9 +224,10 @@ def update(driver1, driver2):
 
     for col, label, row in traces:
         for tel, driver, color in [(d1_tel, driver1, TEAL), (d2_tel, driver2, SILVER)]:
+            width = 1.5 if driver == driver1 else 2
             fig.add_trace(go.Scatter(
                 x=tel['Distance'], y=tel[col],
-                name=driver, line=dict(color=color, width=1.5),
+                name=driver, line=dict(color=color, width=width),
                 legendgroup=driver,
                 showlegend=(row == 1),
                 hovertemplate=f'<b>{driver}</b><br>{label}: %{{y:.1f}}<br>Distance: %{{x:.0f}}m<extra></extra>'
@@ -253,7 +256,6 @@ def update(driver1, driver2):
     fig.update_xaxes(gridcolor='#1a1a1a', zerolinecolor='#1a1a1a',
                      tickfont=dict(size=10, color=MUTED))
 
-    # Delta figure
     d1_dist = d1_tel['Distance'].values
     d1_t = d1_tel['Time'].dt.total_seconds().values
     d2_dist = d2_tel['Distance'].values
@@ -268,7 +270,7 @@ def update(driver1, driver2):
     fig2.add_trace(go.Scatter(
         x=common_dist, y=delta,
         fill='tozeroy',
-        fillcolor=f'rgba(0, 210, 190, 0.12)',
+        fillcolor='rgba(0, 210, 190, 0.12)',
         line=dict(color=TEAL, width=1.5),
         name='Delta',
         hovertemplate='Distance: %{x:.0f}m<br>Delta: %{y:.3f}s<extra></extra>'
