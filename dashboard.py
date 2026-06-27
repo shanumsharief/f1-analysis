@@ -213,35 +213,47 @@ def make_metric_card(label, value, sub, color=TEXT):
     ])
 
 
-def make_track_map(tel, driver1):
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=tel['X'], y=tel['Y'],
-        mode='markers',
-        marker=dict(
-            color=tel['Speed'],
-            colorscale='RdYlGn',
-            size=3,
-            colorbar=dict(
-                title=dict(text='Speed (km/h)', font=dict(color=MUTED, size=10)),
-                tickfont=dict(color=MUTED, size=9),
-                thickness=10,
+def make_track_map(d1_tel, driver1, d2_tel, driver2):
+    fig = make_subplots(
+        rows=1, cols=2,
+        subplot_titles=[f'{driver1} speed heatmap', f'{driver2} speed heatmap'],
+        horizontal_spacing=0.05
+    )
+
+    for tel, driver, col in [(d1_tel, driver1, 1), (d2_tel, driver2, 2)]:
+        fig.add_trace(go.Scatter(
+            x=tel['X'], y=tel['Y'],
+            mode='markers',
+            marker=dict(
+                color=tel['Speed'],
+                colorscale='RdYlGn',
+                size=3,
+                cmin=50, cmax=320,
+                colorbar=dict(
+                    title=dict(text='Speed (km/h)', font=dict(color=MUTED, size=10)),
+                    tickfont=dict(color=MUTED, size=9),
+                    thickness=10,
+                    x=1.02
+                ) if col == 2 else None,
+                showscale=(col == 2)
             ),
-            showscale=True
-        ),
-        hovertemplate='Speed: %{marker.color:.0f} km/h<extra></extra>'
-    ))
+            hovertemplate=f'<b>{driver}</b><br>Speed: %{{marker.color:.0f}} km/h<extra></extra>'
+        ), row=1, col=col)
+
     fig.update_layout(
         paper_bgcolor=CARD, plot_bgcolor=CARD,
         font=dict(color=TEXT),
-        height=400,
-        margin=dict(l=20, r=20, t=40, b=20),
-        title=dict(text=f'Track map — {driver1} speed heatmap',
+        height=420,
+        margin=dict(l=20, r=60, t=40, b=20),
+        title=dict(text='Track map — speed heatmap comparison',
                    font=dict(size=13, color=MUTED), x=0.01),
-        xaxis=dict(visible=False, scaleanchor='y'),
-        yaxis=dict(visible=False),
         showlegend=False
     )
+
+    for i, col in enumerate([1, 2]):
+        fig.update_xaxes(visible=False, row=1, col=col)
+        fig.update_yaxes(visible=False, scaleanchor=f'x{i+1}', scaleratio=1, row=1, col=col)
+
     return fig
 
 
@@ -298,7 +310,6 @@ def update_charts(driver1, driver2, year, race, session_type):
                              f"{driver1} {d1_top:.0f} · {driver2} {d2_top:.0f}", TEXT),
         ]
 
-        # Telemetry figure
         fig = make_subplots(
             rows=4, cols=1, shared_xaxes=True,
             row_heights=[0.35, 0.25, 0.2, 0.2],
@@ -340,7 +351,6 @@ def update_charts(driver1, driver2, year, race, session_type):
         fig.update_xaxes(gridcolor='#1a1a1a', zerolinecolor='#1a1a1a',
                          tickfont=dict(size=10, color=MUTED))
 
-        # Delta figure
         d1_dist = d1_tel['Distance'].values
         d1_t = d1_tel['Time'].dt.total_seconds().values
         d2_dist = d2_tel['Distance'].values
@@ -374,8 +384,7 @@ def update_charts(driver1, driver2, year, race, session_type):
                        title_font=dict(size=10, color=MUTED))
         )
 
-        # Track map
-        track_fig = make_track_map(d1_tel, driver1)
+        track_fig = make_track_map(d1_tel, driver1, d2_tel, driver2)
 
         return fig, fig2, track_fig, cards, label
 
