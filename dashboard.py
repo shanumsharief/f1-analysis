@@ -16,10 +16,8 @@ BORDER = '#222222'
 TEXT = '#e8e8e8'
 MUTED = '#666666'
 
-# Available seasons
 SEASONS = list(range(2018, 2025))
 
-# Session types
 SESSION_TYPES = [
     {'label': 'Qualifying', 'value': 'Q'},
     {'label': 'Race', 'value': 'R'},
@@ -60,7 +58,6 @@ app.index_string = '''
         .dark-dropdown .Select-arrow { border-top-color: #666 !important; }
         .dark-dropdown input { background-color: #1a1a1a !important; color: #e8e8e8 !important; }
         .dark-dropdown .Select-placeholder { color: #666 !important; }
-        ._dash-loading { color: #00D2BE !important; }
     </style>
 </head>
 <body>
@@ -117,7 +114,7 @@ app.layout = html.Div(style={
         })
     ]),
 
-    # Session selectors row
+    # Session selectors
     html.Div(style={'display': 'flex', 'gap': '12px', 'marginBottom': '16px'}, children=[
         selector_card("SEASON", TEAL, make_dropdown(
             'season',
@@ -128,44 +125,45 @@ app.layout = html.Div(style={
         selector_card("SESSION", MUTED, make_dropdown('session-type', SESSION_TYPES, 'Q')),
     ]),
 
-    # Driver selectors row
+    # Driver selectors
     html.Div(style={'display': 'flex', 'gap': '12px', 'marginBottom': '20px'}, children=[
         selector_card("DRIVER 1", TEAL, make_dropdown('driver1', [], 'VER')),
-        selector_card("DRIVER 2", SILVER, make_dropdown('driver2', [], 'HAM')),
+        selector_card("DRIVER 2", SILVER, make_dropdown('driver2', [], 'LEC')),
     ]),
 
     # Loading wrapper
-    dcc.Loading(
-        id='loading',
-        type='circle',
-        color=TEAL,
-        children=[
-            # Metric cards
-            html.Div(id='metric-cards', style={
-                'display': 'grid', 'gridTemplateColumns': 'repeat(4, 1fr)',
-                'gap': '10px', 'marginBottom': '20px'
-            }),
+    dcc.Loading(id='loading', type='circle', color=TEAL, children=[
 
-            # Telemetry chart
-            html.Div(style={
-                'background': CARD, 'border': f'0.5px solid {BORDER}',
-                'borderRadius': '12px', 'padding': '4px', 'marginBottom': '12px'
-            }, children=[dcc.Graph(id='telemetry-chart', config={'displayModeBar': False})]),
+        # Metric cards
+        html.Div(id='metric-cards', style={
+            'display': 'grid', 'gridTemplateColumns': 'repeat(4, 1fr)',
+            'gap': '10px', 'marginBottom': '20px'
+        }),
 
-            # Delta chart
-            html.Div(style={
-                'background': CARD, 'border': f'0.5px solid {BORDER}',
-                'borderRadius': '12px', 'padding': '4px'
-            }, children=[dcc.Graph(id='delta-chart', config={'displayModeBar': False})]),
-        ]
-    ),
+        # Telemetry chart
+        html.Div(style={
+            'background': CARD, 'border': f'0.5px solid {BORDER}',
+            'borderRadius': '12px', 'padding': '4px', 'marginBottom': '12px'
+        }, children=[dcc.Graph(id='telemetry-chart', config={'displayModeBar': False})]),
 
-    # Hidden store for session data state
+        # Delta chart
+        html.Div(style={
+            'background': CARD, 'border': f'0.5px solid {BORDER}',
+            'borderRadius': '12px', 'padding': '4px', 'marginBottom': '12px'
+        }, children=[dcc.Graph(id='delta-chart', config={'displayModeBar': False})]),
+
+        # Track map
+        html.Div(style={
+            'background': CARD, 'border': f'0.5px solid {BORDER}',
+            'borderRadius': '12px', 'padding': '4px'
+        }, children=[dcc.Graph(id='track-map', config={'displayModeBar': False})]),
+
+    ]),
+
     dcc.Store(id='session-store'),
 ])
 
 
-# Update race list when season changes
 @app.callback(
     Output('race', 'options'),
     Output('race', 'value'),
@@ -177,7 +175,6 @@ def update_races(year):
     return races, default
 
 
-# Update drivers when session changes
 @app.callback(
     Output('driver1', 'options'),
     Output('driver2', 'options'),
@@ -198,7 +195,7 @@ def update_drivers(race, year, session_type):
         drivers = sorted(session.laps['Driver'].unique().tolist())
         opts = [{'label': d, 'value': d} for d in drivers]
         d1 = 'VER' if 'VER' in drivers else drivers[0]
-        d2 = 'HAM' if 'HAM' in drivers else drivers[1]
+        d2 = 'LEC' if 'LEC' in drivers else drivers[1]
         return opts, opts, d1, d2, {'year': year, 'race': race, 'session_type': session_type}
     except Exception as e:
         print(f"Error loading session: {e}")
@@ -216,9 +213,42 @@ def make_metric_card(label, value, sub, color=TEXT):
     ])
 
 
+def make_track_map(tel, driver1):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=tel['X'], y=tel['Y'],
+        mode='markers',
+        marker=dict(
+            color=tel['Speed'],
+            colorscale='RdYlGn',
+            size=3,
+            colorbar=dict(
+                title=dict(text='Speed (km/h)', font=dict(color=MUTED, size=10)),
+                tickfont=dict(color=MUTED, size=9),
+                thickness=10,
+            ),
+            showscale=True
+        ),
+        hovertemplate='Speed: %{marker.color:.0f} km/h<extra></extra>'
+    ))
+    fig.update_layout(
+        paper_bgcolor=CARD, plot_bgcolor=CARD,
+        font=dict(color=TEXT),
+        height=400,
+        margin=dict(l=20, r=20, t=40, b=20),
+        title=dict(text=f'Track map — {driver1} speed heatmap',
+                   font=dict(size=13, color=MUTED), x=0.01),
+        xaxis=dict(visible=False, scaleanchor='y'),
+        yaxis=dict(visible=False),
+        showlegend=False
+    )
+    return fig
+
+
 @app.callback(
     Output('telemetry-chart', 'figure'),
     Output('delta-chart', 'figure'),
+    Output('track-map', 'figure'),
     Output('metric-cards', 'children'),
     Output('session-label', 'children'),
     Input('driver1', 'value'),
@@ -229,10 +259,11 @@ def make_metric_card(label, value, sub, color=TEXT):
     prevent_initial_call=True
 )
 def update_charts(driver1, driver2, year, race, session_type):
+    empty = go.Figure()
+    empty.update_layout(paper_bgcolor=CARD, plot_bgcolor=CARD, font=dict(color=TEXT))
+
     if not all([driver1, driver2, year, race, session_type]):
-        empty = go.Figure()
-        empty.update_layout(paper_bgcolor=CARD, plot_bgcolor=CARD, font=dict(color=TEXT))
-        return empty, empty, [], ''
+        return empty, empty, empty, [], ''
 
     try:
         session = fastf1.get_session(year, race, session_type)
@@ -263,9 +294,11 @@ def update_charts(driver1, driver2, year, race, session_type):
             make_metric_card(f"{driver1} LAP TIME", fmt_time(d1_laptime), "fastest lap", TEAL),
             make_metric_card(f"{driver2} LAP TIME", fmt_time(d2_laptime), "fastest lap", SILVER),
             make_metric_card("GAP", f"+{gap:.3f}s", f"{faster} advantage", TEXT),
-            make_metric_card("TOP SPEED", f"{max(d1_top, d2_top):.0f} km/h", f"{driver1} {d1_top:.0f} · {driver2} {d2_top:.0f}", TEXT),
+            make_metric_card("TOP SPEED", f"{max(d1_top, d2_top):.0f} km/h",
+                             f"{driver1} {d1_top:.0f} · {driver2} {d2_top:.0f}", TEXT),
         ]
 
+        # Telemetry figure
         fig = make_subplots(
             rows=4, cols=1, shared_xaxes=True,
             row_heights=[0.35, 0.25, 0.2, 0.2],
@@ -307,6 +340,7 @@ def update_charts(driver1, driver2, year, race, session_type):
         fig.update_xaxes(gridcolor='#1a1a1a', zerolinecolor='#1a1a1a',
                          tickfont=dict(size=10, color=MUTED))
 
+        # Delta figure
         d1_dist = d1_tel['Distance'].values
         d1_t = d1_tel['Time'].dt.total_seconds().values
         d2_dist = d2_tel['Distance'].values
@@ -340,13 +374,14 @@ def update_charts(driver1, driver2, year, race, session_type):
                        title_font=dict(size=10, color=MUTED))
         )
 
-        return fig, fig2, cards, label
+        # Track map
+        track_fig = make_track_map(d1_tel, driver1)
+
+        return fig, fig2, track_fig, cards, label
 
     except Exception as e:
         print(f"Error: {e}")
-        empty = go.Figure()
-        empty.update_layout(paper_bgcolor=CARD, plot_bgcolor=CARD, font=dict(color=TEXT))
-        return empty, empty, [], 'Error loading session'
+        return empty, empty, empty, [], 'Error loading session'
 
 
 if __name__ == '__main__':
